@@ -380,10 +380,23 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
     const j=N+liveIdx;
     strip.scrollLeft = padL + j*(frameW+gap) - (strip.clientWidth-frameW)/2;
   }
+  function cloneFrame(f){                     // копия кадра; видео заменяем постером, чтобы играло только одно (иначе рывки)
+    const c=f.cloneNode(true);
+    const v=c.querySelector('video');
+    if(v){
+      const img=document.createElement('img');
+      img.src=v.getAttribute('poster')||'';
+      img.alt='';
+      v.replaceWith(img);
+      const tag=c.querySelector('.vtag'); if(tag) tag.remove();
+      c.classList.remove('live');
+    }
+    return c;
+  }
   function build(){
     if(!mq.matches || ready) return;
-    originals.forEach(f=>strip.appendChild(f.cloneNode(true)));                       // набор справа
-    [...originals].reverse().forEach(f=>strip.insertBefore(f.cloneNode(true),strip.firstChild)); // набор слева
+    originals.forEach(f=>strip.appendChild(cloneFrame(f)));                            // набор справа
+    [...originals].reverse().forEach(f=>strip.insertBefore(cloneFrame(f),strip.firstChild)); // набор слева
     ready=true;
     requestAnimationFrame(centerLive);
   }
