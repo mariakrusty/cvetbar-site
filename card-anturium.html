@@ -187,8 +187,6 @@ footer{padding:56px var(--pad) 44px;border-top:1px solid var(--hair)}
   </div>
 
   <div class="info">
-    <!-- УСЛОВНО: «Свежий сбор» — статус из админки (собран сегодня). Для товаров из постоянного каталога тут только «Артикул №367» -->
-    <div class="eyebrow">Свежий сбор · артикул №412</div>
     <!-- H1: ключевой, с типами цветов -->
     <h1>Букет с антуриумом, пионовидной розой и дельфиниумом</h1>
     <!-- поэтичное имя — подзаголовком -->
@@ -360,35 +358,43 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 </script>
 <script>
 // МОБИЛЬНАЯ ЛЕНТА — узкие кадры, листаются пальцем БЕСШОВНО ПО КРУГУ.
-// Клонируем набор слева и справа и незаметно «перескакиваем» на середину — прокрутка бесконечная.
+// 3 одинаковых набора; старт — по центру на кадре с видео (LIVE). Незаметный «перескок» на середину = бесконечность.
 (function(){
   const strip=document.querySelector('.strip');
   if(!strip) return;
   const mq=matchMedia('(max-width:900px)');
   const gap=6;
   const originals=[...strip.children];
-  let setW=0, ready=false, ticking=false;
-  function measure(){
-    setW=0;
-    for(let i=0;i<originals.length;i++){ setW += strip.children[i].getBoundingClientRect().width + gap; }
+  const N=originals.length;
+  const liveIdx=Math.max(0, originals.findIndex(f=>f.classList.contains('live'))); // кадр с видео
+  let setW=0, frameW=0, padL=0, ready=false, ticking=false;
+  function metrics(){
+    frameW=strip.children[0].getBoundingClientRect().width;
+    padL=parseFloat(getComputedStyle(strip).paddingLeft)||0;
+    setW=N*(frameW+gap);
+  }
+  function centerLive(){                     // ставим LIVE-кадр среднего набора по центру экрана
+    metrics();
+    const j=N+liveIdx;
+    strip.scrollLeft = padL + j*(frameW+gap) - (strip.clientWidth-frameW)/2;
   }
   function build(){
     if(!mq.matches || ready) return;
-    originals.forEach(f=>strip.appendChild(f.cloneNode(true)));               // копия справа
-    originals.forEach(f=>strip.insertBefore(f.cloneNode(true), strip.children[originals.length])); // копия слева
+    originals.forEach(f=>strip.appendChild(f.cloneNode(true)));                       // набор справа
+    [...originals].reverse().forEach(f=>strip.insertBefore(f.cloneNode(true),strip.firstChild)); // набор слева
     ready=true;
-    requestAnimationFrame(()=>{ measure(); strip.scrollLeft=setW; });          // старт с оригинального набора (в середине)
+    requestAnimationFrame(centerLive);
   }
   strip.addEventListener('scroll',()=>{
     if(!ready || ticking) return; ticking=true;
     requestAnimationFrame(()=>{
-      if(strip.scrollLeft < setW){ strip.scrollLeft += setW; }                 // ушли влево в клон — прыжок вправо (незаметно)
-      else if(strip.scrollLeft > setW*2){ strip.scrollLeft -= setW; }          // ушли вправо в клон — прыжок влево
+      if(strip.scrollLeft < setW){ strip.scrollLeft += setW; }                        // ушли в левый клон — прыжок вправо
+      else if(strip.scrollLeft >= setW*2){ strip.scrollLeft -= setW; }                // ушли в правый клон — прыжок влево
       ticking=false;
     });
   },{passive:true});
-  window.addEventListener('load',()=>{ if(ready){ measure(); strip.scrollLeft=setW; }});
-  window.addEventListener('resize',()=>{ if(ready){ measure(); }});
+  window.addEventListener('load',()=>{ if(ready) centerLive(); });
+  window.addEventListener('resize',()=>{ if(ready) metrics(); });
   mq.addEventListener && mq.addEventListener('change',build);
   build();
 })();
