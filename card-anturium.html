@@ -125,6 +125,8 @@ nav a.back:hover{opacity:.7}
 footer{padding:56px var(--pad) 44px;border-top:1px solid var(--hair)}
 .fnote{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--cocoa-soft);text-align:center;max-width:var(--max);margin:0 auto}
 
+.stripwrap{position:relative}
+.snav,.sdots,.mcta{display:none}
 @media(max-width:900px){
   .stage{height:auto;display:flex;flex-direction:column}
   .strip{grid-template-columns:repeat(5,42vw);gap:6px;height:78vh;overflow-x:auto;padding:6px;scroll-snap-type:x mandatory}
@@ -133,6 +135,31 @@ footer{padding:56px var(--pad) 44px;border-top:1px solid var(--hair)}
   .scrollhint{display:none}
   .chars{grid-template-columns:1fr}
   .cross{grid-template-columns:repeat(2,1fr);gap:16px}
+}
+@media(max-width:640px){
+  /* компактная шапка */
+  header{grid-template-columns:auto auto}
+  .navcenter{display:none}
+  nav{gap:0}
+  nav a:not(.back){display:none}
+  /* фото = карусель по кругу (свайп + стрелки + точки) */
+  .strip{display:flex!important;grid-template-columns:none!important;overflow:hidden!important;height:60vh;gap:0;padding:0;scroll-snap-type:none;transition:transform .4s var(--ease);will-change:transform}
+  .frame{flex:0 0 100%;width:100%;scroll-snap-align:none}
+  .snav{display:flex;position:absolute;top:calc(30vh - 20px);z-index:6;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.9);border:none;align-items:center;justify-content:center;font-size:24px;line-height:1;color:var(--cocoa-ink);cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+  .snav.prev{left:10px}
+  .snav.next{right:10px}
+  .sdots{display:flex;justify-content:center;gap:7px;padding:14px 0 2px}
+  .sdots span{width:7px;height:7px;border-radius:50%;background:var(--hair);cursor:pointer;transition:background .3s,transform .3s}
+  .sdots span.on{background:var(--cobalt);transform:scale(1.35)}
+  /* место под липкую кнопку */
+  .info{padding-bottom:96px}
+  footer{margin-bottom:72px}
+  /* липкая кнопка в корзину */
+  .mcta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:120;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px calc(11px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);border-top:1px solid var(--hair);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .mcta-l{display:flex;flex-direction:column;gap:2px;line-height:1.1}
+  .mcta-p{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:18px;color:var(--cocoa-ink)}
+  .mcta-s{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--cocoa-soft)}
+  .mcta-btn{flex:none;background:var(--cobalt);color:#fff;border:none;padding:14px 20px;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
 }
 </style>
 </head>
@@ -145,6 +172,7 @@ footer{padding:56px var(--pad) 44px;border-top:1px solid var(--hair)}
 
 <!-- ===== ПЕРВЫЙ ЭКРАН ===== -->
 <div class="stage">
+  <div class="stripwrap">
   <div class="strip">
     <div class="frame"><img src="assets/fresh-ant-2.png" alt="Букет с антуриумом, пионовидной розой и дельфиниумом №412 — в полный рост"></div>
     <div class="frame live">
@@ -154,6 +182,10 @@ footer{padding:56px var(--pad) 44px;border-top:1px solid var(--hair)}
     <div class="frame"><img src="assets/fresh-ant-3.png" alt="Букет с антуриумом и пионовидными розами №412 — крупный план букета"></div>
     <div class="frame"><img src="assets/fresh-ant-8.png" alt="Букет с антуриумом и дельфиниумом №412 — в полный рост, вид сверху"></div>
     <div class="frame"><img src="assets/fresh-ant-4.png" alt="Букет с антуриумом №412 — деталь у лица"></div>
+  </div>
+  <button class="snav prev" aria-label="Предыдущее фото">‹</button>
+  <button class="snav next" aria-label="Следующее фото">›</button>
+  <div class="sdots" aria-hidden="true"></div>
   </div>
 
   <div class="info">
@@ -328,5 +360,40 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.getElementById(t.dataset.t).classList.add('on');
 }));
 </script>
+<script>
+// МОБИЛЬНАЯ КАРУСЕЛЬ ФОТО — свайп влево/вправо по кругу + стрелки + точки
+(function(){
+  const strip=document.querySelector('.strip');
+  const frames=strip?[...strip.querySelectorAll('.frame')]:[];
+  const dots=document.querySelector('.sdots');
+  const prev=document.querySelector('.snav.prev'), next=document.querySelector('.snav.next');
+  if(!strip||frames.length<2||!dots) return;
+  let i=0; const n=frames.length;
+  frames.forEach((_,k)=>{const d=document.createElement('span');if(!k)d.className='on';d.addEventListener('click',()=>go(k));dots.appendChild(d);});
+  const mob=()=>matchMedia('(max-width:640px)').matches;
+  function render(){
+    strip.style.transform=mob()?('translateX(-'+(i*100)+'%)'):'';
+    dots.querySelectorAll('span').forEach((s,k)=>s.classList.toggle('on',k===i));
+  }
+  function go(k){i=(k+n)%n;render();}      // по кругу
+  prev&&prev.addEventListener('click',()=>go(i-1));
+  next&&next.addEventListener('click',()=>go(i+1));
+  let x0=null,y0=null;
+  strip.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;y0=e.touches[0].clientY;},{passive:true});
+  strip.addEventListener('touchend',e=>{
+    if(x0===null)return;
+    const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0;
+    if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)) go(dx<0?i+1:i-1);
+    x0=y0=null;
+  },{passive:true});
+  addEventListener('resize',render);
+  render();
+})();
+</script>
+<!-- Липкая кнопка в корзину (мобильная) -->
+<div class="mcta">
+  <div class="mcta-l"><span class="mcta-p">9&nbsp;900&nbsp;₽</span><span class="mcta-s">Свежий сбор · №412</span></div>
+  <button class="mcta-btn">В корзину →</button>
+</div>
 </body>
 </html>
