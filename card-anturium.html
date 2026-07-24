@@ -142,16 +142,11 @@ footer{padding:56px var(--pad) 44px;border-top:1px solid var(--hair)}
   .navcenter{display:none}
   nav{gap:0}
   nav a:not(.back){display:none}
-  /* фото = ПЛЁНКА-лента: главный кадр + подглядывание соседнего (свайп по кругу + стрелки + точки) */
-  .strip{display:flex!important;grid-template-columns:none!important;overflow-x:auto!important;height:60vh;gap:6px;padding:0;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;transform:none!important}
-  .strip::-webkit-scrollbar{display:none}
-  .frame{flex:0 0 82vw;width:auto;scroll-snap-align:center}
-  .snav{display:flex;position:absolute;top:calc(30vh - 20px);z-index:6;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.9);border:none;align-items:center;justify-content:center;font-size:24px;line-height:1;color:var(--cocoa-ink);cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.18)}
-  .snav.prev{left:10px}
-  .snav.next{right:10px}
-  .sdots{display:flex;justify-content:center;gap:7px;padding:14px 0 2px}
-  .sdots span{width:7px;height:7px;border-radius:50%;background:var(--hair);cursor:pointer;transition:background .3s,transform .3s}
-  .sdots span.on{background:var(--cobalt);transform:scale(1.35)}
+  /* ПЛЁНКА — супер-узкие кадры, автолуп «по кругу» (едут сами, пауза при касании) */
+  .strip{display:flex!important;grid-template-columns:none!important;overflow:hidden!important;height:54vh;gap:6px;padding:0;scroll-snap-type:none;will-change:transform}
+  .frame{flex:0 0 44vw;width:auto;scroll-snap-align:none}
+  .snav{display:none}
+  .sdots{display:none}
   /* место под липкую кнопку */
   .info{padding-bottom:96px}
   footer{margin-bottom:72px}
@@ -362,24 +357,31 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 }));
 </script>
 <script>
-// МОБИЛЬНАЯ ПЛЁНКА — нативный свайп + стрелки (по кругу) + точки-индикатор
+// МОБИЛЬНАЯ ПЛЁНКА — супер-узкие кадры едут по кругу (автолуп, пауза при касании)
 (function(){
   const strip=document.querySelector('.strip');
-  const frames=strip?[...strip.querySelectorAll('.frame')]:[];
-  const dots=document.querySelector('.sdots');
-  const prev=document.querySelector('.snav.prev'), next=document.querySelector('.snav.next');
-  if(!strip||frames.length<2||!dots) return;
-  const n=frames.length;
-  frames.forEach((_,k)=>{const d=document.createElement('span');if(!k)d.className='on';d.addEventListener('click',()=>goTo(k));dots.appendChild(d);});
-  function fw(){return frames[0].getBoundingClientRect().width + 6;}
-  function cur(){return Math.min(n-1,Math.max(0,Math.round(strip.scrollLeft/fw())));}
-  function goTo(k){k=(k+n)%n;strip.scrollTo({left:k*fw(),behavior:'smooth'});}   // стрелки — по кругу
-  function upd(){const c=cur();dots.querySelectorAll('span').forEach((s,k)=>s.classList.toggle('on',k===c));}
-  prev&&prev.addEventListener('click',()=>goTo(cur()-1));
-  next&&next.addEventListener('click',()=>goTo(cur()+1));
-  let t;strip.addEventListener('scroll',()=>{cancelAnimationFrame(t);t=requestAnimationFrame(upd);},{passive:true});
-  addEventListener('resize',upd);
-  upd();
+  if(!strip) return;
+  const mq=matchMedia('(max-width:640px)');
+  let x=0, W=0, cloned=false, paused=false, raf=0;
+  function measure(){const o=[...strip.children].slice(0,orig);W=0;for(let k=0;k<orig;k++){W+=strip.children[k].getBoundingClientRect().width+6;}}
+  let orig=0;
+  function init(){
+    if(!mq.matches||cloned){return;}
+    orig=strip.children.length;
+    const src=[...strip.children];
+    src.forEach(f=>strip.appendChild(f.cloneNode(true)));   // дубль набора для бесшовного кольца
+    cloned=true;
+    requestAnimationFrame(()=>{measure();cancelAnimationFrame(raf);loop();});
+  }
+  function loop(){
+    if(!paused&&W>0){x-=0.45;if(x<=-W)x+=W;strip.style.transform='translateX('+x+'px)';}
+    raf=requestAnimationFrame(loop);
+  }
+  strip.addEventListener('touchstart',()=>{paused=true;},{passive:true});
+  strip.addEventListener('touchend',()=>{setTimeout(()=>paused=false,1400);},{passive:true});
+  window.addEventListener('resize',()=>{if(cloned)measure();});
+  init();
+  mq.addEventListener&&mq.addEventListener('change',init);
 })();
 </script>
 <!-- Липкая кнопка в корзину (мобильная) -->
