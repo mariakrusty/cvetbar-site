@@ -129,20 +129,17 @@ footer{padding:56px var(--pad) 44px;border-top:1px solid var(--hair)}
 .snav,.sdots,.mcta{display:none}
 @media(max-width:900px){
   .stage{height:auto;display:flex;flex-direction:column}
-  /* ПЛЁНКА → полноэкранная листалка: одно фото = вся ширина, свайп + прилипание */
-  .strip{display:flex;grid-template-columns:none;gap:0;height:auto;
-    overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;padding:0;
+  /* ПЛЁНКА → узкие кадры, листаются пальцем по кругу (бесшовно) */
+  .strip{display:flex;grid-template-columns:none;gap:6px;height:auto;
+    overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;padding:6px;
     -webkit-overflow-scrolling:touch;scrollbar-width:none}
   .strip::-webkit-scrollbar{display:none}
-  .frame{flex:0 0 100%;width:100%;height:68vh;scroll-snap-align:center}
+  .frame{flex:0 0 46vw;width:46vw;height:64vh;scroll-snap-align:center}
   .info{height:auto;border-left:none;border-top:1px solid var(--hair);justify-content:flex-start;max-width:560px;margin:0 auto}
   .scrollhint{display:none}
   .chars{grid-template-columns:1fr}
   .cross{grid-template-columns:repeat(2,1fr);gap:16px}
-  /* точки-индикатор под галереей */
-  .sdots{display:flex;justify-content:center;gap:7px;padding:13px 0 2px}
-  .sdots i{width:6px;height:6px;border-radius:50%;background:var(--hair);transition:.25s var(--ease);cursor:pointer}
-  .sdots i.on{background:var(--cobalt);width:18px;border-radius:3px}
+  .sdots{display:none}
 }
 @media(max-width:640px){
   /* компактная шапка */
@@ -151,7 +148,7 @@ footer{padding:56px var(--pad) 44px;border-top:1px solid var(--hair)}
   nav{gap:0}
   nav a:not(.back){display:none}
   /* галерея чуть ниже под маленький экран */
-  .frame{height:62vh}
+  .frame{height:56vh}
   /* место под липкую кнопку */
   .info{padding-bottom:96px}
   footer{margin-bottom:72px}
@@ -362,33 +359,43 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 }));
 </script>
 <script>
-// МОБИЛЬНАЯ ГАЛЕРЕЯ — листаем фото пальцем, снизу точки-индикатор (клик по точке = переход)
+// МОБИЛЬНАЯ ЛЕНТА — узкие кадры, листаются пальцем БЕСШОВНО ПО КРУГУ.
+// Клонируем набор слева и справа и незаметно «перескакиваем» на середину — прокрутка бесконечная.
 (function(){
   const strip=document.querySelector('.strip');
-  const dots=document.querySelector('.sdots');
-  if(!strip||!dots) return;
-  const frames=[...strip.children];
-  dots.innerHTML=frames.map((_,i)=>'<i'+(i===0?' class="on"':'')+'></i>').join('');
-  const dotEls=[...dots.children];
-  dotEls.forEach((d,i)=>d.addEventListener('click',()=>{
-    strip.scrollTo({left:frames[i].offsetLeft,behavior:'smooth'});
-  }));
-  let tick=false;
+  if(!strip) return;
+  const mq=matchMedia('(max-width:900px)');
+  const gap=6;
+  const originals=[...strip.children];
+  let setW=0, ready=false, ticking=false;
+  function measure(){
+    setW=0;
+    for(let i=0;i<originals.length;i++){ setW += strip.children[i].getBoundingClientRect().width + gap; }
+  }
+  function build(){
+    if(!mq.matches || ready) return;
+    originals.forEach(f=>strip.appendChild(f.cloneNode(true)));               // копия справа
+    originals.forEach(f=>strip.insertBefore(f.cloneNode(true), strip.children[originals.length])); // копия слева
+    ready=true;
+    requestAnimationFrame(()=>{ measure(); strip.scrollLeft=setW; });          // старт с оригинального набора (в середине)
+  }
   strip.addEventListener('scroll',()=>{
-    if(tick) return; tick=true;
+    if(!ready || ticking) return; ticking=true;
     requestAnimationFrame(()=>{
-      const c=strip.scrollLeft+strip.clientWidth/2;
-      let idx=0,best=1e9;
-      frames.forEach((f,i)=>{const m=f.offsetLeft+f.offsetWidth/2,d=Math.abs(m-c);if(d<best){best=d;idx=i;}});
-      dotEls.forEach((d,i)=>d.classList.toggle('on',i===idx));
-      tick=false;
+      if(strip.scrollLeft < setW){ strip.scrollLeft += setW; }                 // ушли влево в клон — прыжок вправо (незаметно)
+      else if(strip.scrollLeft > setW*2){ strip.scrollLeft -= setW; }          // ушли вправо в клон — прыжок влево
+      ticking=false;
     });
   },{passive:true});
+  window.addEventListener('load',()=>{ if(ready){ measure(); strip.scrollLeft=setW; }});
+  window.addEventListener('resize',()=>{ if(ready){ measure(); }});
+  mq.addEventListener && mq.addEventListener('change',build);
+  build();
 })();
 </script>
 <!-- Липкая кнопка в корзину (мобильная) -->
 <div class="mcta">
-  <div class="mcta-l"><span class="mcta-p">9&nbsp;900&nbsp;₽</span><span class="mcta-s">Свежий сбор · №412</span></div>
+  <div class="mcta-l"><span class="mcta-p">9&nbsp;900&nbsp;₽</span></div>
   <button class="mcta-btn">В корзину →</button>
 </div>
 </body>
